@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사찰 풍수궁합 지도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --paper:#f4efe4; --paper2:#ebe3d2; --ink:#2a2420; --ink2:#5b5148; --line:#cdbfa6; --accent:#8c2f1e;
+  --wood:#3f7d4e; --fire:#c0392b; --earth:#b07d22; --metal:#7d848f; --water:#22406b;
+  --ev-fact:#2f6f4f; --ev-lore:#2e5f8a; --ev-weak:#c27a12; --ev-vweak:#b23b2a; --ev-unk:#8b8278;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;font-size:15px;line-height:1.55}
+h1,h2,h3{font-family:"Noto Serif KR",serif;margin:0}
+header{padding:22px 28px 14px;border-bottom:2px solid var(--ink);display:flex;flex-wrap:wrap;gap:12px 28px;align-items:flex-end;justify-content:space-between}
+header h1{font-size:28px;font-weight:900;letter-spacing:-.5px}
+header h1 small{display:block;font-family:"Noto Sans KR";font-size:13px;font-weight:400;color:var(--ink2);letter-spacing:0;margin-top:2px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--ink2)}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:500;padding:1px 7px;border-radius:3px;color:#fff;white-space:nowrap}
+.ev-fact{background:var(--ev-fact)} .ev-calc{background:#3d4f5c} .ev-lore{background:var(--ev-lore)} .ev-weak{background:var(--ev-weak)} .ev-vweak{background:var(--ev-vweak)} .ev-unk{background:var(--ev-unk)}
+.warnbar{background:#fff7e6;border-bottom:1px solid var(--line);padding:9px 28px;font-size:13px;color:#6b4a12}
+.wrap{padding:18px 28px 40px;max-width:1500px;margin:0 auto}
+.card{background:#fbf8f1;border:1px solid var(--line);border-radius:6px;padding:16px 18px}
+.saju{display:grid;grid-template-columns:auto 1fr;gap:18px 26px;align-items:start}
+.pillars{display:grid;grid-template-columns:repeat(4,64px);gap:6px;text-align:center}
+.pillars .hd{font-size:11.5px;color:var(--ink2)}
+.gz{font-family:"Noto Serif KR",serif;font-size:30px;font-weight:900;line-height:1;padding:8px 0 4px;border-radius:5px;color:#fff}
+.gz small{display:block;font-family:"Noto Sans KR";font-size:10.5px;font-weight:500;margin-top:4px;opacity:.95}
+.gz.dm{outline:3px solid var(--ink);outline-offset:1px}
+.sx{font-size:11px;color:var(--ink2)}
+.bg-wood{background:var(--wood)} .bg-fire{background:var(--fire)} .bg-earth{background:var(--earth)} .bg-metal{background:var(--metal)} .bg-water{background:var(--water)}
+.sform{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-width:640px}
+.scol .hd{font-size:12.5px;color:var(--ink2);margin-bottom:2px}
+.scol select{width:100%;margin-top:3px}
+select{font:inherit;font-size:13px;padding:4px;border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink)}
+.srow{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:12px;font-size:13.5px}
+.srow label{display:flex;gap:6px;align-items:center}
+.btn{background:var(--ink);color:var(--paper);border:0;border-radius:4px;padding:7px 16px;font:inherit;font-size:13.5px;cursor:pointer}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.serr{color:var(--ev-vweak);font-size:13px;margin-top:6px}
+.ok{color:var(--ev-fact);font-weight:700}.bad{color:var(--ev-vweak);font-weight:700}
+@media (max-width:600px){.sform{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.saju-notes h3{font-size:16px;margin-bottom:6px}
+.saju-notes ul{margin:0;padding-left:18px}
+.saju-notes li{margin:3px 0}
+.toggles{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;font-size:13.5px}
+.toggles label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.wts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.wt{font-size:12px;border:1px solid var(--line);border-radius:4px;padding:2px 8px;background:#fff}
+.main{display:grid;grid-template-columns:minmax(320px,1fr) minmax(360px,520px);gap:18px;margin-top:18px}
+.mapcard{padding:10px;position:relative}
+.maptools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 11px;font-size:12.5px;cursor:pointer;font-family:inherit;color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+input[type=search]{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;background:#fff;min-width:140px}
+#map{width:100%;height:680px;border-radius:4px;z-index:0}
+.pinwrap{display:flex;align-items:center;gap:4px;white-space:nowrap;pointer-events:auto}
+.pin{width:15px;height:15px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);flex:none}
+.pin.low{border:2px dashed #2a2420}
+.pin.sel{width:20px;height:20px;border:3px solid #000}
+.pinlbl{font-size:12px;font-weight:700;color:#2a2420;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 3px #fff;font-family:"Noto Sans KR",sans-serif}
+.leaflet-container{font-family:"Noto Sans KR",sans-serif}
+.land{fill:#efe6d3;stroke:#8f7f66;stroke-width:.8}
+.dmz{stroke:#8f7f66;stroke-dasharray:3 3;fill:none;stroke-width:.8}
+.ridge{stroke:#6b5a43;stroke-width:1.4;fill:none;stroke-dasharray:6 3;opacity:.45}
+.ridge-lbl,.geo-lbl{font-size:9px;fill:#6b5a43;opacity:.75}
+.tp{cursor:pointer}
+.tp circle{stroke:#fff;stroke-width:1.4}
+.tp.low circle{stroke:#2a2420;stroke-dasharray:2 1.5;stroke-width:1.2}
+.tp.sel circle{stroke:#000;stroke-width:2.6}
+.tp text{font-size:9.5px;fill:#2a2420;paint-order:stroke;stroke:#f4efe4;stroke-width:2.5px}
+.zoombtns{position:absolute;right:18px;top:52px;display:flex;flex-direction:column;gap:4px}
+.zoombtns button{width:30px;height:30px;border:1px solid var(--line);background:#fff;border-radius:4px;font-size:16px;cursor:pointer}
+.scalebar{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink2);margin-top:8px;flex-wrap:wrap}
+.grad{width:150px;height:9px;border-radius:2px;background:linear-gradient(90deg,#4a5a8a,#9aa3b0,#d9b26a,#c06a2b,#8c2f1e)}
+.detail{min-height:300px}
+.detail .empty{color:var(--ink2);padding:40px 10px;text-align:center}
+.dt-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px}
+.dt-head h2{font-size:24px;font-weight:900}
+.dt-head h2 span{font-size:15px;font-weight:500;color:var(--ink2);margin-left:6px}
+.dt-sub{font-size:12.5px;color:var(--ink2)}
+.cats{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+.cat{font-size:11px;border:1px solid var(--ink2);border-radius:3px;padding:0 5px;color:var(--ink2)}
+.score{text-align:right;min-width:120px}
+.score .n{font-family:"Noto Serif KR",serif;font-size:44px;font-weight:900;line-height:1}
+.score .n.unsure{font-size:17px;line-height:1.25;color:var(--ev-vweak)}
+.score .l{font-size:11.5px;color:var(--ink2)}
+.conf{display:inline-block;margin-top:4px}
+.sec{margin:14px 0}
+.sec h3{font-size:15px;margin-bottom:7px;display:flex;align-items:center;gap:8px}
+.bars{display:grid;grid-template-columns:28px 1fr 128px;gap:5px 8px;align-items:center;font-size:13px}
+.bar{height:14px;background:var(--paper2);border-radius:2px;position:relative;overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.bar i.r{opacity:.45}
+.el{font-family:"Noto Serif KR";font-weight:900;text-align:center;color:#fff;border-radius:3px;font-size:13px}
+.lvl{font-size:12px;color:var(--ink2)}
+table.fx{width:100%;border-collapse:collapse;font-size:12.8px}
+table.fx th{font-weight:500;color:var(--ink2);text-align:left;border-bottom:1px solid var(--line);padding:4px}
+table.fx td:first-child,table.fx th:first-child{white-space:nowrap}
+table.fx td:nth-child(3){white-space:nowrap}
+table.fx td{border-bottom:1px dashed var(--line);padding:5px 4px;vertical-align:top}
+.unk{font-size:12.8px;color:var(--ink2);margin:0;padding-left:18px}
+.unk li{margin:2px 0}
+.calc{font-size:12.5px;background:var(--paper2);border-radius:4px;padding:8px 10px;font-family:ui-monospace,Menlo,monospace;white-space:pre-wrap}
+.rank{margin-top:18px}
+.rank table{width:100%;border-collapse:collapse;font-size:13px}
+.rank th{text-align:left;font-weight:500;color:var(--ink2);border-bottom:1px solid var(--line);padding:5px;cursor:pointer;user-select:none}
+.rank td{border-bottom:1px dashed var(--line);padding:5px}
+.rank tr.row{cursor:pointer}
+.rank tr.row:hover{background:#f3ead8}
+.mini{display:inline-flex;height:9px;width:90px;border-radius:2px;overflow:hidden;vertical-align:middle;background:var(--paper2)}
+.mini i{display:block;height:100%}
+.rules{margin-top:18px;font-size:13.5px}
+.rules h2{font-size:19px;margin-bottom:8px}
+.rules table{border-collapse:collapse;width:100%;font-size:12.8px;margin:6px 0 12px}
+.rules td,.rules th{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+.rules th{background:var(--paper2);font-weight:500}
+footer{font-size:12px;color:var(--ink2);padding:0 28px 30px;max-width:1500px;margin:0 auto}
+@media (max-width:900px){
+  .main{grid-template-columns:1fr}
+  .saju{grid-template-columns:1fr}
+  header,.wrap,.warnbar{padding-left:14px;padding-right:14px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>사찰 풍수궁합 지도<small>사찰·지역의 오행 기운을 근거 등급과 함께 정리하고, 직접 입력한 사주와의 궁합지수를 계산합니다</small></h1>
+  <div class="legend">
+    <span class="badge ev-fact">근거 보통 · 지리 사실</span>
+    <span class="badge ev-lore">근거 보통 · 전승/문헌</span>
+    <span class="badge ev-weak">근거 약함</span>
+    <span class="badge ev-vweak">근거 매우 약함</span>
+    <span class="badge ev-unk">모릅니다 / 확실하지 않습니다</span>
+  </div>
+</header>
+<div class="warnbar">⚠ 사찰이나 지역의 오행 기운을 '측정'하는 표준화·검증된 방법은 없습니다. 이 지도의 수치는 아래 「계산 규칙」에 적힌 규칙대로 계산한 <b>참고용 지표</b>이며, 모든 항목에 근거 등급을 붙였습니다. 근거가 없는 항목은 점수에 넣지 않고 "모릅니다"로 표시했습니다.</div>
+
+<div class="wrap">
+  <section class="card" id="sajuBox"></section>
+
+  <div class="main">
+    <section class="card mapcard">
+      <div class="maptools" id="filters"></div>
+      <div id="map" aria-label="사찰 지도"></div>
+      <div class="scalebar">궁합지수 <span>0</span><span class="grad"></span><span>100</span> · 점선 테두리 = 근거 부족(신뢰도 매우 낮음) · 오른쪽 위에서 지도 종류(기본·지형·위성) 선택 · 사찰 좌표는 근사치</div>
+    </section>
+    <section class="card detail" id="detail"><div class="empty">지도에서 사찰을 클릭하세요.</div></section>
+  </div>
+
+  <section class="card rank">
+    <h2 style="font-size:19px;margin-bottom:8px">전체 사찰 궁합지수 <span style="font-size:12.5px;font-weight:400;color:var(--ink2)">(열 제목을 누르면 정렬)</span></h2>
+    <div style="overflow-x:auto"><table id="rankTbl"></table></div>
+  </section>
+
+  <section class="card rules" id="rules"></section>
+</div>
+<footer>지도 타일: OpenStreetMap, Esri. 인터넷 연결이 필요합니다. 사찰 좌표는 공개 자료 기억 기반의 근사치이며, 방문 전 각 사찰 공식 정보로 확인하세요. 사주·풍수 해석은 학파와 해석자에 따라 결과가 다를 수 있습니다.</footer>
+
+<script>
+(function(){
+"use strict";
+var EL = ["wood","fire","earth","metal","water"];
+var ELK = {wood:"목",fire:"화",earth:"토",metal:"금",water:"수"};
+var ELH = {wood:"木",fire:"火",earth:"土",metal:"金",water:"水"};
+var ELC = {wood:"#3f7d4e",fire:"#c0392b",earth:"#b07d22",metal:"#7d848f",water:"#22406b"};
+var EVL = {fact:"근거 보통 · 지리 사실",lore:"근거 보통 · 전승/문헌",weak:"근거 약함",vweak:"근거 매우 약함",unk:"모릅니다",calc:"계산으로 확인"};
+var EVQ = {fact:1, lore:0.8, weak:0.4, vweak:0.15};
+
+/* ---------------- 사주 입력 · 분석 엔진 ---------------- */
+var STEMS="甲乙丙丁戊己庚辛壬癸".split(""), STEMK="갑을병정무기경신임계".split("");
+var BRS="子丑寅卯辰巳午未申酉戌亥".split(""), BRK="자축인묘진사오미신유술해".split("");
+var STEM_EL=["wood","wood","fire","fire","earth","earth","metal","metal","water","water"];
+var BR_EL=["water","earth","wood","wood","earth","fire","fire","earth","metal","metal","earth","water"];
+var HID=[["壬","癸"],["癸","辛","己"],["戊","丙","甲"],["甲","乙"],["乙","癸","戊"],["戊","庚","丙"],["丙","己","丁"],["丁","乙","己"],["戊","壬","庚"],["庚","辛"],["辛","丁","戊"],["戊","甲","壬"]];
+var EIDX={wood:0,fire:1,earth:2,metal:3,water:4};
+var GROUPS=["비겁","식상","재성","관성","인성"];
+function brMain(b){ var h=HID[b]; return STEMS.indexOf(h[h.length-1]); }
+function tenGod(dm,s){
+  var rel=(EIDX[STEM_EL[s]]-EIDX[STEM_EL[dm]]+5)%5, same=(dm%2)===(s%2);
+  return [["비견","겁재"],["식신","상관"],["편재","정재"],["편관","정관"],["편인","정인"]][rel][same?0:1];
+}
+function groupOf(dm,el){ return GROUPS[(EIDX[el]-EIDX[STEM_EL[dm]]+5)%5]; }
+function elOfGroup(dm,g){ return EL[(EIDX[STEM_EL[dm]]+GROUPS.indexOf(g))%5]; }
+function gz(s,b){ return STEMS[s]+BRS[b]; }
+function gzk(s,b){ return STEMK[s]+BRK[b]; }
+function B(ev){ return '<span class="badge ev-'+ev+'">'+EVL[ev]+'</span>'; }
+
+var state={inp:null, sj:null, useDw:true, sewoon:false, filter:"전체", q:"", sel:null, sortKey:"score", sortDir:-1};
+
+function sewoonNow(){
+  var d=new Date(), y=d.getFullYear();
+  if(d.getMonth()<1 || (d.getMonth()===1 && d.getDate()<4)) y-=1; // 입춘(대략 2월 4일) 이전이면 전년도
+  return {s:((y-4)%10+10)%10, b:((y-4)%12+12)%12, y:y};
+}
+
+function analyzeSaju(inp){
+  var pil=[{k:"년주",s:inp.ys,b:inp.yb},{k:"월주",s:inp.ms,b:inp.mb},{k:"일주",s:inp.ds,b:inp.db}];
+  var hasHour = inp.hs>=0 && inp.hb>=0;
+  if(hasHour) pil.push({k:"시주",s:inp.hs,b:inp.hb});
+  var dm=inp.ds, cnt={}, grp={}; EL.forEach(function(e){cnt[e]=0;}); GROUPS.forEach(function(g){grp[g]=0;});
+  pil.forEach(function(p){
+    cnt[STEM_EL[p.s]]++; cnt[BR_EL[p.b]]++;
+    if(p.k!=="일주") grp[groupOf(dm,STEM_EL[p.s])]+=1;
+    grp[groupOf(dm,BR_EL[p.b])]+= (p.k==="월주"?2:1);
+  });
+  var tot=0; GROUPS.forEach(function(g){tot+=grp[g];});
+  var ratio=(grp["비겁"]+grp["인성"])/tot;
+  var strength = ratio>=0.55?"신강":(ratio<=0.42?"신약":"중화");
+  var deukryeong = ["비겁","인성"].indexOf(groupOf(dm,BR_EL[inp.mb]))>=0;
+
+  // 검산
+  var checks=[];
+  pil.forEach(function(p){ if(p.s%2!==p.b%2) checks.push({ok:false,t:p.k+" "+gz(p.s,p.b)+"는 60갑자에 없는 조합입니다(천간·지지의 음양이 맞지 않음)."}); });
+  var expM=([2,4,6,8,0][inp.ys%5]+((inp.mb-2+12)%12))%10;
+  checks.push(expM===inp.ms?{ok:true,t:"월주 검산: 년간 "+STEMS[inp.ys]+" 기준 "+BRS[inp.mb]+"월은 "+gz(expM,inp.mb)+" — 입력값과 일치"}
+    :{ok:false,t:"월주 검산: 년간 "+STEMS[inp.ys]+" 기준이면 "+BRS[inp.mb]+"월은 "+gz(expM,inp.mb)+"이어야 합니다. 입력한 "+gz(inp.ms,inp.mb)+"을(를) 다시 확인하세요."});
+  if(hasHour){
+    var expH=((inp.ds%5)*2+inp.hb)%10;
+    checks.push(expH===inp.hs?{ok:true,t:"시주 검산: 일간 "+STEMS[inp.ds]+" 기준 "+BRS[inp.hb]+"시는 "+gz(expH,inp.hb)+" — 입력값과 일치"}
+      :{ok:false,t:"시주 검산: 일간 "+STEMS[inp.ds]+" 기준이면 "+BRS[inp.hb]+"시는 "+gz(expH,inp.hb)+"이어야 합니다. 입력한 "+gz(inp.hs,inp.hb)+"을(를) 다시 확인하세요."});
+  }
+  var dwInfo=null;
+  if(inp.dws>=0 && inp.dwb>=0){
+    var fwd = ((inp.ys%2===0) === (inp.g==="M")); // 양남음녀 순행
+    for(var k=1;k<=12;k++){
+      var s=((inp.ms+(fwd?k:-k))%10+10)%10, b=((inp.mb+(fwd?k:-k))%12+12)%12;
+      if(s===inp.dws && b===inp.dwb){ dwInfo={k:k,fwd:fwd}; break; }
+    }
+    checks.push(dwInfo?{ok:true,t:"대운 검산: "+(fwd?"순행":"역행")+" 기준 "+dwInfo.k+"번째 대운이 "+gz(inp.dws,inp.dwb)+" — 입력값과 일치"}
+      :{ok:false,t:"대운 검산: 성별·년간·월주로 계산한 "+(fwd?"순행":"역행")+" 대운 순서에 "+gz(inp.dws,inp.dwb)+"이(가) 없습니다. 성별이나 대운을 다시 확인하세요."});
+  }
+
+  // 합·충
+  var CH=[[0,6],[1,7],[2,8],[3,9],[4,10],[5,11]];
+  var YH=[[0,1],[2,11],[3,10],[4,9],[5,8],[6,7]];
+  var SH=[[[8,0,4],"수국"],[[11,3,7],"목국"],[[2,6,10],"화국"],[[5,9,1],"금국"]];
+  var GH=[[0,5,"토"],[1,6,"금"],[2,7,"수"],[3,8,"목"],[4,9,"화"]];
+  function isPair(L,a,b){ return L.some(function(x){return (x[0]===a&&x[1]===b)||(x[0]===b&&x[1]===a);}); }
+  var rel=[];
+  for(var i=0;i<pil.length;i++) for(var j=i+1;j<pil.length;j++){
+    var A=pil[i],C=pil[j];
+    if(isPair(CH,A.b,C.b)) rel.push(BRS[A.b]+BRS[C.b]+"충("+A.k.charAt(0)+"지–"+C.k.charAt(0)+"지)");
+    if(isPair(YH,A.b,C.b)) rel.push(BRS[A.b]+BRS[C.b]+"육합("+A.k.charAt(0)+"지–"+C.k.charAt(0)+"지)");
+    GH.forEach(function(x){ if((A.s===x[0]&&C.s===x[1])||(A.s===x[1]&&C.s===x[0])) rel.push(STEMS[A.s]+STEMS[C.s]+"합("+x[2]+", "+A.k.charAt(0)+"간–"+C.k.charAt(0)+"간)"); });
+  }
+  var brs=pil.map(function(p){return p.b;});
+  SH.forEach(function(x){
+    var have=x[0].filter(function(b){return brs.indexOf(b)>=0;});
+    if(have.length===3) rel.push(x[0].map(function(b){return BRS[b];}).join("")+" 삼합("+x[1]+")");
+    else if(have.length===2 && have.indexOf(x[0][1])>=0) rel.push(have.map(function(b){return BRS[b];}).join("")+" 반합("+x[1]+")");
+  });
+  var dwChung=[];
+  if(inp.dws>=0 && inp.dwb>=0) pil.forEach(function(p){ if(isPair(CH,inp.dwb,p.b)) dwChung.push({p:p, b:p.b}); });
+
+  // 희용신(억부법 기본 규칙)
+  var w={}, yong=[], gi=[]; EL.forEach(function(e){w[e]=0;});
+  var G=function(g){return elOfGroup(dm,g);};
+  if(strength==="신강"){
+    var order = grp["인성"]>grp["비겁"]?["재성","식상","관성"]:["관성","식상","재성"];
+    w[G(order[0])]=1.0; w[G(order[1])]=0.7; w[G(order[2])]=0.1;
+    var heavy = grp["인성"]>grp["비겁"]?["인성","비겁"]:["비겁","인성"];
+    w[G(heavy[0])]=-0.9; w[G(heavy[1])]=-0.6;
+    yong=[order[0],order[1]]; gi=heavy;
+  } else if(strength==="신약"){
+    var drains=["식상","재성","관성"].sort(function(a,b){return grp[b]-grp[a];});
+    var first = drains[0]==="재성"?"비겁":"인성", second = first==="비겁"?"인성":"비겁";
+    w[G(first)]=1.0; w[G(second)]=0.7;
+    w[G(drains[0])]=-0.9; w[G(drains[1])]=-0.6; w[G(drains[2])]=-0.2;
+    yong=[first,second]; gi=[drains[0],drains[1]];
+  } else {
+    var mx=Math.max.apply(null,EL.map(function(e){return cnt[e];}));
+    EL.forEach(function(e){ if(cnt[e]===0) w[e]=0.6; else if(cnt[e]===mx) w[e]=-0.6; });
+  }
+  return {inp:inp, pil:pil, hasHour:hasHour, dm:dm, cnt:cnt, grp:grp, ratio:ratio, strength:strength, deukryeong:deukryeong,
+          checks:checks, dwInfo:dwInfo, rel:rel, dwChung:dwChung, base:w, yong:yong, gi:gi};
+}
+
+function currentW(){
+  var sj=state.sj; if(!sj) return null;
+  var w=Object.assign({},sj.base), inp=sj.inp;
+  function feed(el,kPos,kNeg){ if(w[el]>0) w[el]-=kPos; else w[el]-=kNeg; }
+  if(state.useDw && inp.dws>=0 && inp.dwb>=0){
+    feed(STEM_EL[inp.dws],0.15,0.1); feed(BR_EL[inp.dwb],0.15,0.1);
+    var tg={};
+    sj.dwChung.forEach(function(c){
+      var a=EIDX[BR_EL[inp.dwb]], b=EIDX[BR_EL[c.b]];
+      if((a+2)%5===b) tg[EL[(a+1)%5]]=1;        // 대운이 원국을 극 → 사이 오행이 통관
+      else if((b+2)%5===a) tg[EL[(b+1)%5]]=1;   // 원국이 대운을 극
+    });
+    Object.keys(tg).forEach(function(e){ w[e]+=0.3; });  // 같은 충이 여러 번이어도 한 번만
+  }
+  if(state.sewoon){ var sw=sewoonNow(); feed(STEM_EL[sw.s],0.075,0.1); feed(BR_EL[sw.b],0.075,0.1); }
+  EL.forEach(function(e){ w[e]=Math.round(w[e]*100)/100; });
+  return w;
+}
+
+/* ----- 입력 폼 ----- */
+function stemOpts(sel,unk){ var h='<option value="-1">'+(unk?'모름':'천간')+'</option>'; STEMS.forEach(function(s,i){ h+='<option value="'+i+'"'+(sel===i?' selected':'')+'>'+s+' '+STEMK[i]+' ('+ELK[STEM_EL[i]]+')</option>'; }); return h; }
+function brOpts(sel,unk){ var h='<option value="-1">'+(unk?'모름':'지지')+'</option>'; BRS.forEach(function(s,i){ h+='<option value="'+i+'"'+(sel===i?' selected':'')+'>'+s+' '+BRK[i]+' ('+ELK[BR_EL[i]]+')</option>'; }); return h; }
+function nv(x){ return typeof x==="number"?x:-1; }
+function renderSajuForm(){
+  var inp=state.inp||{}, sw=sewoonNow();
+  var cols=[["시주","hs","hb",true],["일주","ds","db",false],["월주","ms","mb",false],["년주","ys","yb",false]];
+  var h='<h2 style="font-size:19px;margin-bottom:4px">내 사주 입력</h2>'+
+    '<p class="sx" style="margin:0 0 10px">만세력 앱이나 사이트에서 확인한 네 기둥의 간지를 고르세요. 입력값은 이 브라우저에만 저장되며 서버로 전송되지 않습니다.</p>'+
+    '<div class="sform">'+cols.map(function(c){
+      return '<div class="scol"><div class="hd">'+c[0]+(c[3]?' <span class="sx">(모르면 비움)</span>':'')+'</div>'+
+        '<select id="i_'+c[1]+'" aria-label="'+c[0]+' 천간">'+stemOpts(nv(inp[c[1]]),c[3])+'</select>'+
+        '<select id="i_'+c[2]+'" aria-label="'+c[0]+' 지지">'+brOpts(nv(inp[c[2]]),c[3])+'</select></div>';
+    }).join("")+'</div>'+
+    '<div class="srow"><label>성별 <select id="i_g"><option value="F"'+(inp.g==="F"?' selected':'')+'>여성</option><option value="M"'+(inp.g==="M"?' selected':'')+'>남성</option></select></label>'+
+    '<label>현재 대운(선택) <select id="i_dws" aria-label="대운 천간">'+stemOpts(nv(inp.dws),true)+'</select><select id="i_dwb" aria-label="대운 지지">'+brOpts(nv(inp.dwb),true)+'</select></label>'+
+    '<label><input type="checkbox" id="i_sw"'+(state.sewoon?' checked':'')+'> '+sw.y+'년 세운('+gz(sw.s,sw.b)+') 반영</label>'+
+    '<button id="btnA" class="btn">분석하기</button><button id="btnC" class="btn ghost">지우기</button></div>'+
+    '<div id="sErr" class="serr"></div><div id="sajuOut"></div>';
+  document.getElementById("sajuBox").innerHTML=h;
+  document.getElementById("btnA").onclick=submitSaju;
+  document.getElementById("btnC").onclick=function(){ state.inp=null; state.sj=null; try{localStorage.removeItem("tsm_saju");}catch(e){} renderSajuForm(); refresh(); };
+  document.getElementById("i_sw").onchange=function(e){ state.sewoon=e.target.checked; refresh(); };
+}
+function submitSaju(){
+  var g=function(id){ return parseInt(document.getElementById("i_"+id).value,10); };
+  var inp={ys:g("ys"),yb:g("yb"),ms:g("ms"),mb:g("mb"),ds:g("ds"),db:g("db"),hs:g("hs"),hb:g("hb"),dws:g("dws"),dwb:g("dwb"),g:document.getElementById("i_g").value};
+  var err=[];
+  if([inp.ys,inp.yb,inp.ms,inp.mb,inp.ds,inp.db].some(function(x){return x<0;})) err.push("년주·월주·일주의 천간과 지지를 모두 골라 주세요.");
+  if((inp.hs<0)!==(inp.hb<0)) err.push("시주는 천간과 지지를 둘 다 고르거나 둘 다 '모름'으로 두세요.");
+  if((inp.dws<0)!==(inp.dwb<0)) err.push("대운은 천간과 지지를 둘 다 고르거나 둘 다 '모름'으로 두세요.");
+  document.getElementById("sErr").textContent=err.join(" ");
+  if(err.length) return;
+  state.inp=inp; state.sj=analyzeSaju(inp); state.useDw=true;
+  try{ localStorage.setItem("tsm_saju",JSON.stringify(inp)); }catch(e){}
+  refresh();
+}
+function loadSaved(){
+  try{ var s=JSON.parse(localStorage.getItem("tsm_saju")||"null");
+    if(s && typeof s.ds==="number" && s.ds>=0){ state.inp=s; state.sj=analyzeSaju(s); } }catch(e){}
+}
+
+/* ----- 분석 결과 표시 ----- */
+function renderSajuNotes(){
+  var out=document.getElementById("sajuOut"); if(!out) return;
+  var sj=state.sj;
+  if(!sj){ out.innerHTML='<div class="sx" style="padding:10px 0 2px">사주를 입력하면 명식 분석과 사찰별 궁합지수가 나옵니다. 입력하지 않아도 사찰의 오행 기운 분석은 볼 수 있습니다.</div>'; return; }
+  var inp=sj.inp, dm=sj.dm;
+  var disp=[["시주",inp.hs,inp.hb],["일주",inp.ds,inp.db],["월주",inp.ms,inp.mb],["년주",inp.ys,inp.yb]];
+  var ph="";
+  disp.forEach(function(p){ ph+='<div class="hd">'+p[0]+'</div>'; });
+  disp.forEach(function(p){ ph+= p[1]<0?'<div class="gz" style="background:#bdb4a6">?<small>모름</small></div>'
+      :'<div class="gz bg-'+STEM_EL[p[1]]+(p[0]==="일주"?' dm':'')+'">'+STEMS[p[1]]+'<small>'+STEMK[p[1]]+' · '+ELK[STEM_EL[p[1]]]+'</small></div>'; });
+  disp.forEach(function(p){ ph+='<div class="sx">'+(p[1]<0?'':p[0]==="일주"?'일간':tenGod(dm,p[1]))+'</div>'; });
+  disp.forEach(function(p){ ph+= p[2]<0?'<div class="gz" style="background:#bdb4a6">?<small>모름</small></div>'
+      :'<div class="gz bg-'+BR_EL[p[2]]+'">'+BRS[p[2]]+'<small>'+BRK[p[2]]+' · '+ELK[BR_EL[p[2]]]+'</small></div>'; });
+  disp.forEach(function(p){ ph+='<div class="sx">'+(p[2]<0?'':tenGod(dm,brMain(p[2]))+'<br>지장간 '+HID[p[2]].join("·"))+'</div>'; });
+
+  var cntTxt=EL.map(function(e){return ELK[e]+" "+sj.cnt[e];}).join(" · ");
+  var n=sj.hasHour?8:6;
+  var li=[];
+  li.push('오행 분포(천간·지지 '+n+'글자): <b>'+cntTxt+'</b> '+B("calc")+'<span class="sx"> 입력한 간지를 그대로 센 값</span>');
+  sj.checks.forEach(function(c){ li.push((c.ok?'<span class="ok">✔</span> ':'<span class="bad">⚠</span> ')+c.t+' '+(c.ok?B("calc"):'')); });
+  var sup=Math.round(sj.ratio*100);
+  li.push('일간 <b>'+STEMS[dm]+'('+ELK[STEM_EL[dm]]+')</b>, '+BRS[inp.mb]+'월생'+(sj.deukryeong?'(월령의 도움을 받음)':'(월령의 도움을 받지 못함)')+'. 일간을 돕는 비겁·인성의 비중이 '+sup+'%여서 '+
+    (sj.strength==="중화"?'<b>신강·신약 판단이 어려운 중화</b>로 봤습니다.':'<b>'+sj.strength+'</b> 쪽으로 판정했습니다.')+' '+B("weak")+
+    '<span class="sx"> 월지를 2배로 친 단순 계산입니다. 학파나 해석자에 따라 결과가 다를 수 있습니다.</span>');
+  if(sj.strength==="중화") li.push('희용신: 중화라서 원국에 <b>없는 오행</b>을 반길 오행으로, <b>가장 많은 오행</b>을 피할 오행으로 두었습니다. '+B("weak"));
+  else li.push('희용신(억부법 기본 규칙): '+sj.yong.map(function(g,i){var e=elOfGroup(dm,g); return (i+1)+'순위 <b style="color:'+ELC[e]+'">'+ELK[e]+'('+g+')</b>';}).join(', ')+
+    ' / 불리: '+sj.gi.map(function(g){var e=elOfGroup(dm,g); return '<b style="color:'+ELC[e]+'">'+ELK[e]+'('+g+')</b>';}).join(', ')+' '+B("weak")+
+    '<span class="sx"> 계절(조후)은 반영하지 않았습니다. 전문가의 용신 판단과 다를 수 있습니다.</span>');
+  li.push('합·충: '+(sj.rel.length?sj.rel.join(', '):'원국 안에서 확인된 합·충 없음')+' '+B("calc")+'<span class="sx"> 실제 삶에 어떻게 나타나는지는 확실하지 않습니다(궁합 점수에는 미반영).</span>');
+  if(inp.dws>=0){
+    li.push('대운 '+gz(inp.dws,inp.dwb)+' 반영: 대운에 이미 들어온 오행은 필요도를 조금 낮추거나 감점을 키웠습니다.'+
+      (sj.dwChung.length?' 대운 '+BRS[inp.dwb]+'와(과) 원국 '+sj.dwChung.map(function(c){return BRS[c.b];}).join('·')+'의 충이 있어, 두 오행을 이어주는 통관 오행의 가중치를 올렸습니다.':'')+' '+B("weak")+
+      '<span class="sx"> 대운을 궁합 점수에 넣는 정립된 공식은 없습니다.</span>');
+  }
+  if(!sj.hasHour) li.push('시주를 모르면 두 글자가 빠져 분석 정확도가 낮아집니다. '+B("unk"));
+
+  var w=currentW();
+  var wts=EL.map(function(e){ var v=w[e]; return '<span class="wt" style="border-color:'+ELC[e]+'"><b style="color:'+ELC[e]+'">'+ELK[e]+'</b> '+(v>0?'+':'')+v.toFixed(2)+'</span>'; }).join("");
+  out.innerHTML='<div class="saju" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">'+
+    '<div><div class="pillars">'+ph+'</div><div class="sx" style="margin-top:8px">'+(inp.g==="F"?"여성":"남성")+(inp.dws>=0?' · 현재 대운 <b>'+gz(inp.dws,inp.dwb)+'</b>':'')+'</div></div>'+
+    '<div class="saju-notes"><h3>명식 요약과 궁합 기준</h3><ul>'+li.map(function(x){return '<li>'+x+'</li>';}).join("")+'</ul>'+
+    (inp.dws>=0?'<div class="toggles"><label><input type="checkbox" id="tgD"'+(state.useDw?' checked':'')+'> 현재 대운 반영</label></div>':'')+
+    '<div class="wts"><span class="sx" style="align-self:center">현재 오행 가중치:</span>'+wts+'</div></div></div>';
+  var tg=document.getElementById("tgD"); if(tg) tg.onchange=function(e){ state.useDw=e.target.checked; refresh(); };
+}
+
+/* ---------------- 사찰 데이터 ----------------
+ terrain: rock(골산·바위산) | earth(육산·흙산) | null(모름)
+ water: [{t:"sea"|"seaview"|"stream"|"island", n:설명}]
+ forest: 설명 | null
+ lore: [{el, p, n, ev}]  (el null이면 점수 없는 참고 전승)
+ nm: [[글자, 오행]]  이름 한자 자의 해석
+ bd: "on"|"near"|null 백두대간
+ sj: {lv:"direct"|"near", n} 정감록 십승지
+*/
+var T = [
+ {id:"tongdo",n:"통도사",h:"通度寺",a:"경남 양산",m:"영축산",lat:35.4875,lon:129.0636,c:["적멸보궁","3보사찰","유네스코 산사"],
+  terrain:null,water:[],forest:"무풍한송로 소나무 숲길",lore:[{el:"water",p:1,n:"구룡지(九龍池) 창건 설화: 연못에 살던 용을 다스리고 절을 세웠다는 전승",ev:"lore"}],nm:[],bd:null,sj:null},
+ {id:"sangwon",n:"상원사",h:"上院寺",a:"강원 평창",m:"오대산",lat:37.7870,lon:128.5650,c:["적멸보궁"],
+  terrain:"earth",water:[],forest:null,lore:[],nm:[],bd:"on",sj:null,note:"적멸보궁 전각은 상원사 위쪽 중대(사자암 부근)에 있습니다."},
+ {id:"bongjeong_am",n:"봉정암",h:"鳳頂庵",a:"강원 인제",m:"설악산",lat:38.1550,lon:128.4220,c:["적멸보궁"],
+  terrain:"rock",water:[],forest:null,lore:[],nm:[],bd:"on",sj:null},
+ {id:"beopheung",n:"법흥사",h:"法興寺",a:"강원 영월",m:"사자산",lat:37.3380,lon:128.2290,c:["적멸보궁"],
+  terrain:null,water:[],forest:null,lore:[],nm:[],bd:null,sj:null,note:"정감록 십승지의 '영월 정동 상류'와의 관계는 위치 비정이 엇갈려 확실하지 않습니다(점수 미반영)."},
+ {id:"jeongam",n:"정암사",h:"淨巖寺",a:"강원 정선",m:"함백산(태백산권)",lat:37.2130,lon:128.8850,c:["적멸보궁"],
+  terrain:null,water:[],forest:null,lore:[],nm:[["淨","water"],["巖","metal"]],bd:"on",sj:null},
+ {id:"haein",n:"해인사",h:"海印寺",a:"경남 합천",m:"가야산",lat:35.8013,lon:128.0977,c:["3보사찰"],
+  terrain:"rock",water:[{t:"stream",n:"홍류동 계곡"}],forest:null,
+  lore:[{el:"fire",p:2,n:"가야산의 바위 봉우리를 불꽃 같은 '석화성(石火星)'으로 보는 전통 서술과, 남산제일봉의 화기(火氣)를 누르려 소금단지를 묻는 행사가 전해짐",ev:"lore"}],
+  nm:[["海","water"]],bd:null,sj:{lv:"near",n:"일부 판본·해석에서 '가야산 만수동'이 십승지로 언급됨(판본마다 다름)"}},
+ {id:"songgwang",n:"송광사",h:"松廣寺",a:"전남 순천",m:"조계산",lat:35.0026,lon:127.2771,c:["3보사찰"],
+  terrain:null,water:[{t:"stream",n:"경내 계곡(우화각·삼청교 아래 계류)"}],forest:null,lore:[],nm:[["松","wood"]],bd:null,sj:null},
+ {id:"naksan",n:"낙산사",h:"洛山寺",a:"강원 양양",m:"오봉산",lat:38.1247,lon:128.6278,c:["관음성지"],
+  terrain:null,water:[{t:"sea",n:"동해 해안 절벽 위(홍련암)"}],forest:null,lore:[],nm:[["洛","water"]],bd:null,sj:null},
+ {id:"bori",n:"보리암",h:"菩提庵",a:"경남 남해",m:"금산",lat:34.7553,lon:127.9806,c:["관음성지"],
+  terrain:"rock",water:[{t:"seaview",n:"산 정상부에서 남해 바다 조망(해안에 바로 붙어 있지는 않음)"}],forest:null,lore:[],nm:[],bd:null,sj:null},
+ {id:"hyangil",n:"향일암",h:"向日庵",a:"전남 여수",m:"금오산",lat:34.5923,lon:127.8030,c:["관음성지"],
+  terrain:"rock",water:[{t:"sea",n:"남해 바다에 면한 해안 암벽"}],forest:null,lore:[],nm:[["日","fire"]],bd:null,sj:null},
+ {id:"bomun",n:"보문사",h:"普門寺",a:"인천 강화(석모도)",m:"낙가산",lat:37.7355,lon:126.3215,c:["관음성지"],
+  terrain:null,water:[{t:"sea",n:"서해 바다 조망"},{t:"island",n:"석모도(섬)"}],forest:null,lore:[],nm:[],bd:null,sj:null},
+ {id:"buseok",n:"부석사",h:"浮石寺",a:"경북 영주",m:"봉황산",lat:36.9989,lon:128.6873,c:["유네스코 산사"],
+  terrain:null,water:[],forest:null,lore:[{el:null,p:0,n:"'뜬 바위(浮石)' 창건 설화(의상·선묘). 오행 배정 근거는 없어 점수 미반영",ev:"lore"}],nm:[["石","metal"]],bd:"near",
+  sj:{lv:"near",n:"같은 영주권의 '풍기 금계촌'이 십승지로 꼽히나, 부석사 자체가 해당하지는 않음"}},
+ {id:"bongjeong",n:"봉정사",h:"鳳停寺",a:"경북 안동",m:"천등산",lat:36.6534,lon:128.6627,c:["유네스코 산사"],
+  terrain:null,water:[],forest:null,lore:[],nm:[],bd:null,sj:null},
+ {id:"beopju",n:"법주사",h:"法住寺",a:"충북 보은",m:"속리산",lat:36.5420,lon:127.8330,c:["유네스코 산사"],
+  terrain:"rock",water:[],forest:null,lore:[],nm:[],bd:"on",sj:{lv:"near",n:"정감록 십승지의 '보은 속리산 아래'와 같은 권역"}},
+ {id:"magok",n:"마곡사",h:"麻谷寺",a:"충남 공주",m:"태화산",lat:36.5555,lon:127.0143,c:["유네스코 산사"],
+  terrain:null,water:[{t:"stream",n:"경내를 S자로 감아 흐르는 마곡천"}],forest:null,
+  lore:[{el:"water",p:1,n:"물길과 산줄기가 태극 모양으로 감싼다는 '산태극·수태극' 형국 전승",ev:"lore"}],nm:[],bd:null,
+  sj:{lv:"direct",n:"정감록 십승지의 '공주 유구·마곡'에 직접 해당"}},
+ {id:"seonam",n:"선암사",h:"仙巖寺",a:"전남 순천",m:"조계산",lat:34.9998,lon:127.3307,c:["유네스코 산사"],
+  terrain:null,water:[{t:"stream",n:"승선교 아래 계곡"}],forest:null,lore:[],nm:[["巖","metal"]],bd:null,sj:null},
+ {id:"daeheung",n:"대흥사",h:"大興寺",a:"전남 해남",m:"두륜산",lat:34.4757,lon:126.6176,c:["유네스코 산사"],
+  terrain:null,water:[{t:"stream",n:"장춘동 계곡"}],forest:null,
+  lore:[{el:null,p:0,n:"서산대사가 '삼재가 들지 않는 곳(三災不入之處)'이라 했다는 전승. 오행 배정 근거는 없어 점수 미반영",ev:"lore"}],nm:[],bd:null,sj:null},
+ {id:"bulguk",n:"불국사",h:"佛國寺",a:"경북 경주",m:"토함산",lat:35.7900,lon:129.3320,c:["기타 명찰"],
+  terrain:null,water:[],forest:null,lore:[],nm:[],bd:null,sj:null},
+ {id:"hwaeom",n:"화엄사",h:"華嚴寺",a:"전남 구례",m:"지리산",lat:35.2560,lon:127.4980,c:["기타 명찰"],
+  terrain:"earth",water:[{t:"stream",n:"화엄사 계곡"}],forest:null,lore:[],nm:[],bd:"on",sj:null},
+ {id:"ssanggye",n:"쌍계사",h:"雙磎寺",a:"경남 하동",m:"지리산",lat:35.2363,lon:127.6510,c:["기타 명찰"],
+  terrain:"earth",water:[{t:"stream",n:"두 계곡이 만나는 화개천 상류"}],forest:null,lore:[],nm:[["磎","water"]],bd:"on",sj:null},
+ {id:"woljeong",n:"월정사",h:"月精寺",a:"강원 평창",m:"오대산",lat:37.7316,lon:128.5924,c:["기타 명찰"],
+  terrain:"earth",water:[{t:"stream",n:"오대천"}],forest:"전나무 숲길",lore:[],nm:[],bd:"on",sj:null},
+ {id:"sinheung",n:"신흥사",h:"神興寺",a:"강원 속초",m:"설악산",lat:38.1700,lon:128.4880,c:["기타 명찰"],
+  terrain:"rock",water:[],forest:null,lore:[],nm:[],bd:"on",sj:null},
+ {id:"beomeo",n:"범어사",h:"梵魚寺",a:"부산 금정구",m:"금정산",lat:35.2834,lon:129.0682,c:["기타 명찰"],
+  terrain:"rock",water:[],forest:null,
+  lore:[{el:"metal",p:0.5,n:"산 정상 바위의 금샘(金井)에 금빛 물고기가 놀았다는 설화",ev:"lore"},{el:"water",p:0.5,n:"같은 금샘(우물) 설화의 물 요소",ev:"lore"}],nm:[],bd:null,sj:null},
+ {id:"donghwa",n:"동화사",h:"桐華寺",a:"대구 동구",m:"팔공산",lat:35.9906,lon:128.6942,c:["기타 명찰"],
+  terrain:null,water:[],forest:null,lore:[],nm:[["桐","wood"]],bd:null,sj:null},
+ {id:"geumsan",n:"금산사",h:"金山寺",a:"전북 김제",m:"모악산",lat:35.7245,lon:127.0527,c:["기타 명찰"],
+  terrain:null,water:[],forest:null,lore:[],nm:[["金","metal"]],bd:null,sj:null},
+ {id:"naeso",n:"내소사",h:"來蘇寺",a:"전북 부안",m:"능가산(변산)",lat:35.6305,lon:126.6163,c:["기타 명찰"],
+  terrain:null,water:[],forest:"전나무 숲길",lore:[],nm:[],bd:null,sj:{lv:"near",n:"정감록 십승지의 '부안 변산'과 같은 권역(판본마다 표현 다름)"}},
+ {id:"baegyang",n:"백양사",h:"白羊寺",a:"전남 장성",m:"백암산",lat:35.4400,lon:126.8800,c:["기타 명찰"],
+  terrain:null,water:[{t:"stream",n:"쌍계루 앞 계류"}],forest:null,lore:[],nm:[["白","metal"]],bd:null,sj:null},
+ {id:"sudeok",n:"수덕사",h:"修德寺",a:"충남 예산",m:"덕숭산",lat:36.6620,lon:126.6215,c:["기타 명찰"],
+  terrain:null,water:[],forest:null,lore:[],nm:[],bd:null,sj:null},
+ {id:"guin",n:"구인사",h:"救仁寺",a:"충북 단양",m:"소백산",lat:37.0240,lon:128.4870,c:["기타 명찰"],
+  terrain:"earth",water:[],forest:null,lore:[],nm:[["仁","wood"]],bd:"on",sj:null},
+ {id:"yonggung",n:"해동용궁사",h:"海東龍宮寺",a:"부산 기장",m:"(해안 암반)",lat:35.1883,lon:129.2233,c:["기타 명찰"],
+  terrain:"rock",water:[{t:"sea",n:"동해 해안 암반 위"}],forest:null,lore:[],nm:[["海","water"]],bd:null,sj:null},
+ {id:"jeondeung",n:"전등사",h:"傳燈寺",a:"인천 강화",m:"정족산",lat:37.6265,lon:126.5235,c:["기타 명찰"],
+  terrain:null,water:[{t:"island",n:"강화도(섬)"}],forest:null,lore:[],nm:[["燈","fire"]],bd:null,sj:null},
+ {id:"jogye",n:"조계사",h:"曹溪寺",a:"서울 종로",m:"(도심)",lat:37.5740,lon:126.9817,c:["기타 명찰"],urban:true,
+  terrain:null,water:[],forest:null,lore:[],nm:[["溪","water"]],bd:null,sj:null},
+ {id:"bongeun",n:"봉은사",h:"奉恩寺",a:"서울 강남",m:"수도산(도심)",lat:37.5150,lon:127.0570,c:["기타 명찰"],urban:true,
+  terrain:null,water:[],forest:null,lore:[],nm:[],bd:null,sj:null},
+ {id:"gwaneum",n:"관음사",h:"觀音寺",a:"제주 제주시",m:"한라산",lat:33.4250,lon:126.5500,c:["기타 명찰"],
+  terrain:null,water:[{t:"island",n:"제주도(섬)"}],forest:null,lore:[],nm:[],bd:null,sj:null,jeju:true}
+];
+
+/* ---------------- 계산 규칙 ---------------- */
+var CENTER = {lat:36.5, lon:127.9};
+function obangOf(t){
+  var dx = (t.lon-CENTER.lon)*0.804, dy = t.lat-CENTER.lat;
+  var d = Math.sqrt(dx*dx+dy*dy);
+  if(d < 0.55) return {el:"earth", dir:"중앙"};
+  var ang = Math.atan2(dx,dy)*180/Math.PI; if(ang<0) ang+=360;
+  if(ang>=45 && ang<135) return {el:"wood",dir:"동"};
+  if(ang>=135 && ang<225) return {el:"fire",dir:"남"};
+  if(ang>=225 && ang<315) return {el:"metal",dir:"서"};
+  return {el:"water",dir:"북"};
+}
+function factors(t){
+  var f = [], unk = [];
+  // 사찰 입지
+  if(t.terrain==="rock") f.push({sc:"사찰",lb:"산 지형: 바위가 드러난 골산",el:"metal",p:2,ev:"weak",n:"산의 성격은 지리 사실이지만, '바위=금'은 풍수 오성론 해석의 하나로 학파마다 다릅니다."});
+  else if(t.terrain==="earth") f.push({sc:"사찰",lb:"산 지형: 흙이 두터운 육산",el:"earth",p:2,ev:"weak",n:"산의 성격은 지리 사실이지만, '흙산=토' 배정은 해석입니다."});
+  else if(!t.urban) unk.push("주산(뒷산)의 형상·지질 오행: 모릅니다");
+  (t.water||[]).forEach(function(w){
+    if(w.t==="sea") f.push({sc:"사찰",lb:"바다 인접 — "+w.n,el:"water",p:3,ev:"fact",n:"물=수는 오행의 기본 대응입니다."});
+    if(w.t==="seaview") f.push({sc:"사찰",lb:"바다 조망 — "+w.n,el:"water",p:1.5,ev:"fact",n:"직접 붙어 있지 않아 바다 인접보다 낮게 반영했습니다."});
+    if(w.t==="stream") f.push({sc:"사찰",lb:"계곡·하천 — "+w.n,el:"water",p:2,ev:"fact",n:"물=수는 오행의 기본 대응입니다."});
+    if(w.t==="island") f.push({sc:"사찰",lb:"섬 입지 — "+w.n,el:"water",p:1,ev:"fact",n:"사방이 물인 입지를 수로 약하게 반영했습니다."});
+  });
+  if(!(t.water||[]).length && !t.urban) unk.push("물길(득수)의 방향·형태: 모릅니다");
+  if(t.forest) f.push({sc:"사찰",lb:"숲 — "+t.forest,el:"wood",p:1,ev:"fact",n:"나무=목은 오행의 기본 대응입니다."});
+  (t.lore||[]).forEach(function(l){ f.push({sc:"사찰",lb:"전승",el:l.el,p:l.p,ev:l.ev,n:l.n}); });
+  (t.nm||[]).forEach(function(x){ f.push({sc:"사찰",lb:"이름 한자 '"+x[0]+"'",el:x[1],p:0.5,ev:"vweak",n:"글자 뜻·부수에 따른 자의 해석입니다. 참고만 하세요."}); });
+  if(t.urban) unk.push("도심 입지라 자연 지형에 따른 풍수 판단이 어렵습니다: 확실하지 않습니다");
+  unk.push("좌향(건물이 앉은 방향)과 전통 풍수 기록상의 정확한 혈(穴) 위치: 모릅니다");
+  // 지역
+  var ob = obangOf(t);
+  f.push({sc:"지역",lb:"오방 방위: 국토 중심 기준 "+ob.dir+"쪽",el:ob.el,p:1.5,ev:"weak",n:"동=목, 남=화, 중앙=토, 서=금, 북=수의 전통 오방 이론을 적용했습니다. 중심점(북위 36.5°, 동경 127.9°)은 이 지도가 임의로 정한 값입니다."});
+  if(t.bd==="on") f.push({sc:"지역",lb:"백두대간 위의 산",el:"earth",p:1.5,ev:"weak",n:"대간 위치는 산경표 기반의 사실이고, '지기(땅 기운)가 강하다=토' 배정은 해석입니다."});
+  if(t.bd==="near") f.push({sc:"지역",lb:"백두대간 인접 지맥",el:"earth",p:0.75,ev:"weak",n:"대간 본줄기에서 갈라진 산으로 보아 절반만 반영했습니다."});
+  if(t.sj){
+    var pp = t.sj.lv==="direct"?1.5:0.75;
+    f.push({sc:"지역",lb:"정감록 십승지 "+(t.sj.lv==="direct"?"(직접 해당)":"(인접·판본 차이)"),el:"earth",p:pp,ev:t.sj.lv==="direct"?"lore":"weak",n:t.sj.n+". 십승지를 '안정된 땅=토'로 배정한 것은 이 지도의 규칙입니다."});
+  }
+  if(t.jeju) f.push({sc:"지역",lb:"화산섬(제주)",el:"fire",p:1,ev:"weak",n:"화산 지형이라는 사실을 '화'로 연결한 것은 연상에 가까운 해석입니다."});
+  if(t.note) unk.push(t.note);
+  return {f:f, unk:unk, ob:ob};
+}
+function analyze(t){
+  var r = factors(t), site={}, reg={}, all={};
+  EL.forEach(function(e){site[e]=0;reg[e]=0;all[e]=0;});
+  var q=0, strong=0;
+  r.f.forEach(function(x){
+    if(!x.el||!x.p) return;
+    if(x.ev==="fact"||x.ev==="lore") strong++;
+    (x.sc==="사찰"?site:reg)[x.el]+=x.p; all[x.el]+=x.p; q+=EVQ[x.ev]*Math.min(1,x.p/1.5);
+  });
+  var ss=0,rs=0; EL.forEach(function(e){ss+=site[e];rs+=reg[e];});
+  var prof={};
+  EL.forEach(function(e){
+    var a = ss>0 ? site[e]/ss : 0, b = rs>0 ? reg[e]/rs : 0;
+    prof[e] = ss>0 ? 0.6*a+0.4*b : b;
+  });
+  var w = currentW(), raw=null, score=null;
+  if(w){ raw=0; var mx=-9, mn=9;
+    EL.forEach(function(e){ raw+=w[e]*prof[e]; mx=Math.max(mx,w[e]); mn=Math.min(mn,w[e]); });
+    score = mx>mn ? Math.round((raw-mn)/(mx-mn)*100) : 50; }
+  var grade = (strong===0||q<1.0)?"매우 낮음":(q>=2.4?"보통":"낮음");
+  return {t:t, f:r.f, unk:r.unk, ob:r.ob, site:site, reg:reg, all:all, ss:ss, rs:rs, prof:prof, raw:raw, score:score, q:q, grade:grade, siteOnlyRegion: ss===0};
+}
+function scoreColor(s){
+  if(s===null||s===undefined) return "#9a8f80";
+  var stops=[[0,[74,90,138]],[25,[154,163,176]],[50,[217,178,106]],[75,[192,106,43]],[100,[140,47,30]]];
+  for(var i=1;i<stops.length;i++){ if(s<=stops[i][0]){ var a=stops[i-1],b=stops[i],k=(s-a[0])/(b[0]-a[0]);
+    return "rgb("+[0,1,2].map(function(j){return Math.round(a[1][j]+(b[1][j]-a[1][j])*k);}).join(",")+")"; } }
+  return "rgb(140,47,30)";
+}
+function levelWord(v){ return v>=3?"강":v>=1.5?"중":v>0?"약":"근거 없음"; }
+
+/* ---------------- 지도 (Leaflet + 실제 타일) ---------------- */
+var RIDGE=[[128.33,38.60],[128.47,38.12],[128.54,37.79],[128.70,37.55],[128.92,37.16],[128.70,37.02],[128.48,36.96],[128.10,36.80],[127.87,36.54],[127.95,36.25],[127.75,35.86],[127.60,35.60],[127.73,35.34]];
+var map = L.map("map",{zoomControl:true,minZoom:6,maxZoom:18}).setView([36.2,127.8],7);
+var bases = {
+  "기본 지도": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}),
+  "지형(산세)": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles &copy; Esri"}),
+  "위성": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Tiles &copy; Esri"})
+};
+bases["기본 지도"].addTo(map);
+var ridge = L.polyline(RIDGE.map(function(p){return [p[1],p[0]];}),{color:"#6b5a43",weight:3,opacity:.55,dashArray:"8 6"}).bindTooltip("백두대간(개략 경로)");
+var obang = L.circle([CENTER.lat,CENTER.lon],{radius:61000,color:"#b07d22",weight:1.5,dashArray:"4 6",fill:false}).bindTooltip("오방 중심권(이 지도가 임의로 정한 기준)");
+ridge.addTo(map); obang.addTo(map);
+var pinLayer = L.layerGroup().addTo(map);
+L.control.layers(bases,{"백두대간(개략)":ridge,"오방 중심권":obang},{collapsed:false}).addTo(map);
+L.control.scale({imperial:false}).addTo(map);
+function visible(t){
+  if(state.filter!=="전체" && t.c.indexOf(state.filter)<0) return false;
+  if(state.q && (t.n+t.h+t.a+t.m).indexOf(state.q)<0) return false;
+  return true;
+}
+function drawPoints(results){
+  pinLayer.clearLayers();
+  results.forEach(function(r){
+    if(!visible(r.t)) return;
+    var sel = state.sel===r.t.id;
+    var cls = "pin"+(r.grade==="매우 낮음"?" low":"")+(sel?" sel":"");
+    var icon = L.divIcon({className:"",iconSize:null,iconAnchor:[sel?10:8,sel?10:8],
+      html:'<div class="pinwrap"><div class="'+cls+'" style="background:'+scoreColor(r.score)+'"></div><span class="pinlbl">'+r.t.n+'</span></div>'});
+    var m = L.marker([r.t.lat,r.t.lon],{icon:icon,title:r.t.n+" · 궁합 "+(r.score===null?"사주 미입력":r.score),zIndexOffset:sel?1000:0});
+    m.on("click",function(){ select(r.t.id); });
+    pinLayer.addLayer(m);
+  });
+}
+/* ---------------- 필터 ---------------- */
+var CATS=["전체","적멸보궁","3보사찰","관음성지","유네스코 산사","기타 명찰"];
+function renderFilters(){
+  var h=CATS.map(function(c){return '<button class="chip'+(state.filter===c?' on':'')+'" data-c="'+c+'">'+c+'</button>';}).join("");
+  h+='<input type="search" id="q" placeholder="사찰·지역 검색" value="'+state.q.replace(/"/g,"")+'">';
+  var box=document.getElementById("filters"); box.innerHTML=h;
+  box.querySelectorAll(".chip").forEach(function(b){ b.onclick=function(){ state.filter=b.dataset.c; renderFilters(); refresh(); }; });
+  var qi=document.getElementById("q"); qi.oninput=function(){ state.q=qi.value.trim(); refresh(true); };
+}
+
+/* ---------------- 상세 ---------------- */
+function select(id){ state.sel=id; refresh(); var tt=T.filter(function(x){return x.id===id;})[0]; if(tt) map.flyTo([tt.lat,tt.lon],Math.max(map.getZoom(),10),{duration:.8}); var d=document.getElementById("detail"); if(window.innerWidth<900) d.scrollIntoView({behavior:"smooth",block:"start"}); }
+function renderDetail(results){
+  var box=document.getElementById("detail");
+  var r=results.filter(function(x){return x.t.id===state.sel;})[0];
+  if(!r){ box.innerHTML='<div class="empty">지도나 아래 표에서 사찰을 클릭하세요.</div>'; return; }
+  var t=r.t, unsure=r.grade==="매우 낮음", w=currentW(), has=!!w;
+  var mxp=0; EL.forEach(function(e){ mxp=Math.max(mxp,r.all[e]); }); mxp=Math.max(mxp,4);
+  var bars=EL.map(function(e){
+    var ws=(r.site[e]/mxp*100), wr=(r.reg[e]/mxp*100);
+    return '<div class="el" style="background:'+ELC[e]+'">'+ELK[e]+'</div>'+
+      '<div class="bar"><i style="width:'+ws+'%;background:'+ELC[e]+'"></i><i class="r" style="width:'+wr+'%;background:'+ELC[e]+'"></i></div>'+
+      '<div class="lvl">'+(r.all[e]?r.all[e].toFixed(2)+'점 · ':'')+levelWord(r.all[e])+' · '+Math.round(r.prof[e]*100)+'%</div>';
+  }).join("");
+  var rows=r.f.map(function(x){
+    return '<tr><td>'+x.sc+'</td><td>'+x.lb+'<div class="sx">'+x.n+'</div></td><td>'+(x.el?'<b style="color:'+ELC[x.el]+'">'+ELK[x.el]+'</b> +'+x.p:'—')+'</td><td>'+B(x.ev)+'</td></tr>';
+  }).join("");
+  var calc;
+  if(has){
+    var ws_=EL.map(function(e){return w[e];});
+    calc = EL.map(function(e){ return ELK[e]+" "+(r.prof[e]*100).toFixed(0)+"% × "+(w[e]>0?"+":"")+w[e].toFixed(2); }).join("\n")+
+      "\n가중합 = "+r.raw.toFixed(3)+"  →  최저("+Math.min.apply(null,ws_).toFixed(2)+")~최고("+Math.max.apply(null,ws_).toFixed(2)+") 구간을 0~100으로 환산 = "+r.score;
+  } else calc = "사주를 입력하면 계산 과정이 표시됩니다.";
+  var best = EL.slice().sort(function(a,b){return r.prof[b]-r.prof[a];});
+  var interp = "이 사찰에서 가장 크게 잡힌 기운은 <b style='color:"+ELC[best[0]]+"'>"+ELK[best[0]]+"</b>("+Math.round(r.prof[best[0]]*100)+"%)입니다. ";
+  if(has) interp += (w[best[0]]>0.5 ? "입력한 사주에서 보충이 필요한 오행과 맞아 궁합에 유리하게 계산됐습니다." : w[best[0]]<-0.3 ? "입력한 사주에 이미 많은 오행이어서 궁합 점수를 낮췄습니다." : "입력한 사주 기준으로 중립에 가까운 기운입니다.");
+  else interp += "위에서 사주를 입력하면 궁합 해석이 함께 나옵니다.";
+  if(r.siteOnlyRegion) interp += " <b>사찰 고유의 근거가 없어 지역 요소로만 계산했습니다.</b>";
+  var sc = !has ? '<div class="n unsure" style="color:var(--ink2)">사주 미입력</div><div class="l">사주를 입력하면 계산됩니다</div>'
+    : unsure ? '<div class="n unsure">확실하지 않습니다</div><div class="l">참고치 '+r.score+' / 100</div>'
+    : '<div class="n" style="color:'+scoreColor(r.score)+'">'+r.score+'</div><div class="l">궁합지수 / 100</div>';
+  box.innerHTML =
+   '<div class="dt-head"><div><h2>'+t.n+'<span>'+t.h+'</span></h2><div class="dt-sub">'+t.a+' · '+t.m+'</div><div class="cats">'+t.c.map(function(c){return '<span class="cat">'+c+'</span>';}).join("")+'</div></div>'+
+   '<div class="score">'+sc+'<span class="badge conf '+(r.grade==="보통"?"ev-fact":r.grade==="낮음"?"ev-weak":"ev-vweak")+'">근거 신뢰도 '+r.grade+'</span></div></div>'+
+   '<div class="sec"><h3>오행 기운의 정도</h3><div class="bars">'+bars+'</div><div class="sx" style="margin-top:5px">진한 막대 = 사찰 입지 요소, 옅은 막대 = 지역 요소. 비율(%)은 사찰 60% + 지역 40%로 합친 값이며, "근거 없음"은 해당 기운이 없다는 뜻이 아니라 <b>근거를 찾지 못했다</b>는 뜻입니다.</div></div>'+
+   '<div class="sec"><h3>풍수궁합 해석</h3><div style="font-size:13.5px">'+interp+'</div></div>'+
+   '<div class="sec"><h3>반영한 근거</h3><table class="fx"><tr><th>구분</th><th>요소</th><th>오행</th><th>근거</th></tr>'+rows+'</table></div>'+
+   '<div class="sec"><h3>모르는 부분 '+B("unk")+'</h3><ul class="unk">'+r.unk.map(function(u){return '<li>'+u+'</li>';}).join("")+'</ul></div>'+
+   '<div class="sec"><h3>계산 과정</h3><div class="calc">'+calc+'</div></div>';
+}
+
+/* ---------------- 순위표 ---------------- */
+function renderRank(results){
+  var list=results.filter(function(r){return visible(r.t);});
+  var k=state.sortKey, d=state.sortDir;
+  list.sort(function(a,b){
+    var va = k==="name"?a.t.n:k==="grade"?a.q:(a.score===null?-1:a.score), vb = k==="name"?b.t.n:k==="grade"?b.q:(b.score===null?-1:b.score);
+    return (va>vb?1:va<vb?-1:0)*d;
+  });
+  var hd=[["name","사찰"],["","지역"],["","오행 구성"],["score","궁합지수"],["grade","근거 신뢰도"]];
+  var h='<tr>'+hd.map(function(x){return '<th data-k="'+x[0]+'">'+x[1]+(state.sortKey===x[0]?(state.sortDir>0?" ▲":" ▼"):"")+'</th>';}).join("")+'</tr>';
+  list.forEach(function(r){
+    var mini=EL.map(function(e){return '<i style="width:'+(r.prof[e]*100)+'%;background:'+ELC[e]+'"></i>';}).join("");
+    var top=EL.slice().sort(function(a,b){return r.prof[b]-r.prof[a];})[0];
+    h+='<tr class="row" data-id="'+r.t.id+'"><td><b>'+r.t.n+'</b> <span class="sx">'+r.t.h+'</span></td><td class="sx">'+r.t.a+'</td><td><span class="mini">'+mini+'</span> <span class="sx">'+ELK[top]+' 우세</span></td>'+
+       '<td>'+(r.score===null?'<span class="sx">사주 입력 필요</span>':r.grade==="매우 낮음"?'<span style="color:var(--ev-vweak)">확실하지 않습니다</span> <span class="sx">('+r.score+')</span>':'<b style="color:'+scoreColor(r.score)+'">'+r.score+'</b>')+'</td><td>'+r.grade+'</td></tr>';
+  });
+  var tb=document.getElementById("rankTbl"); tb.innerHTML=h;
+  tb.querySelectorAll("th").forEach(function(th){ if(!th.dataset.k) return; th.onclick=function(){ if(state.sortKey===th.dataset.k) state.sortDir*=-1; else {state.sortKey=th.dataset.k; state.sortDir=th.dataset.k==="name"?1:-1;} refresh(); }; });
+  tb.querySelectorAll("tr.row").forEach(function(tr){ tr.onclick=function(){ select(tr.dataset.id); window.scrollTo({top:document.querySelector(".main").offsetTop-10,behavior:"smooth"}); }; });
+}
+
+/* ---------------- 규칙 설명 ---------------- */
+function renderRules(){
+  document.getElementById("rules").innerHTML =
+  '<h2>계산 규칙과 한계</h2>'+
+  '<p>사찰마다 아래 요소를 확인해, 근거가 있는 것만 오행 점수로 더했습니다. 확인하지 못한 요소는 0점이 아니라 <b>"모릅니다"</b>로 따로 적었습니다.</p>'+
+  '<table><tr><th>범위</th><th>요소</th><th>오행 · 점수</th><th>근거 등급</th></tr>'+
+  '<tr><td rowspan="7">사찰 입지 (60%)</td><td>바다 인접 / 바다 조망</td><td>수 +3 / +1.5</td><td>'+B("fact")+'</td></tr>'+
+  '<tr><td>계곡·하천 / 섬 입지</td><td>수 +2 / +1</td><td>'+B("fact")+'</td></tr>'+
+  '<tr><td>이름난 숲(전나무·소나무 숲길)</td><td>목 +1</td><td>'+B("fact")+'</td></tr>'+
+  '<tr><td>바위산(골산) / 흙산(육산)</td><td>금 +2 / 토 +2</td><td>'+B("weak")+'</td></tr>'+
+  '<tr><td>사찰 전승·문헌 속 풍수 서술</td><td>항목별 +0.5~2</td><td>'+B("lore")+'</td></tr>'+
+  '<tr><td>사찰·산 이름의 한자</td><td>글자당 +0.5</td><td>'+B("vweak")+'</td></tr>'+
+  '<tr><td>좌향·혈 위치·주산 형상</td><td>미반영</td><td>'+B("unk")+'</td></tr>'+
+  '<tr><td rowspan="4">지역 (40%)</td><td>오방 방위(동목·남화·중토·서금·북수)</td><td>해당 오행 +1.5</td><td>'+B("weak")+'</td></tr>'+
+  '<tr><td>백두대간 위 / 인접</td><td>토 +1.5 / +0.75</td><td>'+B("weak")+'</td></tr>'+
+  '<tr><td>정감록 십승지 직접 / 인접</td><td>토 +1.5 / +0.75</td><td>'+B("lore")+' / '+B("weak")+'</td></tr>'+
+  '<tr><td>화산섬(제주)</td><td>화 +1</td><td>'+B("weak")+'</td></tr>'+
+  '</table>'+
+  '<p><b>궁합지수</b> = 사찰의 오행 비율 × 입력한 사주의 오행 가중치(사주 입력 카드에 표시)를 곱해 더한 값을, 가중치의 최저~최고 구간에 대해 0~100으로 환산한 값입니다. 사주에 필요한 오행 비율이 높을수록 높고, 이미 많은 오행 비율이 높을수록 낮습니다.</p><p><b>사주 가중치 정하는 법</b>: 월지를 2배로 쳐서 일간을 돕는 기운(비겁·인성) 비중이 55% 이상이면 신강, 42% 이하면 신약, 그 사이는 중화로 봅니다. 신강이면 인성이 많을 때 재성 → 식상 순, 비겁이 많을 때 관성 → 식상 순으로 반기고, 신약이면 인성·비겁을 반깁니다. 억부법의 기본 규칙만 자동으로 적용한 것이라 '+B("weak")+'으로 표시합니다. 계절(조후)은 반영하지 않습니다.</p>'+
+  '<p><b>근거 신뢰도</b>: 반영된 요소마다 근거 등급(지리 사실 1.0, 전승 0.8, 약함 0.4, 매우 약함 0.15)과 크기를 곱해 더했습니다. 2.4 이상은 "보통", 그 아래는 "낮음"입니다. 단, 반영된 요소가 모두 \'근거 약함·매우 약함\'이거나 합계가 1.0 미만이면 "매우 낮음"으로 두고, 점수 대신 "확실하지 않습니다"로 표시합니다. 이 방식 자체가 검증된 방법이 아니므로 "높음" 등급은 두지 않았습니다.</p>'+
+  '<p class="sx">이 지도가 다루지 않는 것: 실제 현장 측량, 사찰 건물의 좌향, 패철(나경) 측정, 개인의 실제 건강·운세 변화. 중요한 결정은 이 지표만으로 내리지 마세요.</p>';
+}
+
+/* ---------------- 실행 ---------------- */
+var lastResults=[];
+function refresh(onlyFilter){
+  lastResults = T.map(analyze);
+  if(!onlyFilter){ renderSajuNotes(); }
+  drawPoints(lastResults); renderDetail(lastResults); renderRank(lastResults);
+}
+loadSaved(); renderSajuForm(); renderFilters(); renderRules(); refresh();
+window.__TEMPLE_RESULTS = function(){ return lastResults.map(function(r){return [r.t.n,r.score,r.grade,r.q.toFixed(2)];}); };
+})();
+</script>
+</body>
+</html>
